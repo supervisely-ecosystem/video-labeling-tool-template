@@ -1,10 +1,12 @@
 import os
 import supervisely as sly
 import supervisely.app.development as sly_app_development
-from supervisely.app.widgets import Container, Button, Field, Table
+from supervisely.app.widgets import Container, Button, Field, Table, Text
 from dotenv import load_dotenv
 
 columns = ["Status", "Dataset name", "Video ID", "Video Name", "URL", "Object Name", "Frame Range"]
+ok_status = "✅"
+error_status = "❌"
 
 check_button = Button("Check")
 check_field = Field(
@@ -13,10 +15,16 @@ check_field = Field(
     content=check_button,
 )
 
+error_text = Text(
+    "Some objects are not labeled correctly. Please check the results table for more details.",
+    status="error",
+)
+error_text.hide()
+
 results_table = Table(columns=columns, fixed_cols=1)
 results_table.hide()
 
-layout = Container(widgets=[check_field, results_table])
+layout = Container(widgets=[check_field, error_text, results_table])
 app = sly.Application(layout=layout)
 
 # Enabling advanced debug mode.
@@ -29,7 +37,6 @@ if sly.is_development():
 
 api = sly.Api.from_env()
 project_id = sly.env.project_id()
-# dataset_id = sly.env.dataset_id()
 project_meta = sly.ProjectMeta.from_json(api.project.get_meta(project_id))
 
 results = []
@@ -39,6 +46,7 @@ results = []
 def check():
     results.clear()
     results_table.hide()
+    error_text.hide()
 
     datasets = api.dataset.get_list(project_id)
     for dataset in datasets:
@@ -50,12 +58,11 @@ def check():
         for video_id, video_name, ann in zip(video_ids, video_names, anns):
             check_annotation(dataset, video_id, video_name, ann)
 
-    update_table()
-
-
-def update_table():
     results_table.read_json({"columns": columns, "data": results})
     results_table.show()
+
+    if any([result[0] == error_status for result in results]):
+        error_text.show()
 
 
 def download_annotations(dataset_id, video_ids):
@@ -70,7 +77,7 @@ def check_annotation(
     dataset: sly.DatasetInfo, video_id: int, video_name: str, ann: sly.VideoAnnotation
 ):
     for tag in ann.tags:
-        status = "✅" if is_in_range(tag, ann) else "❌"
+        status = ok_status if is_in_range(tag, ann) else error_status
         results.append(
             [
                 status,
