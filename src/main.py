@@ -1,7 +1,7 @@
 import os
 import supervisely as sly
 import supervisely.app.development as sly_app_development
-from supervisely.app.widgets import Container, Button, Field, Table, Text
+from supervisely.app.widgets import Container, Button, Field, Table, Text, Checkbox
 from dotenv import load_dotenv
 
 columns = ["Status", "Dataset name", "Video ID", "Video Name", "URL", "Object Name", "Frame Range"]
@@ -21,10 +21,17 @@ error_text = Text(
 )
 error_text.hide()
 
+show_all_checkbox = Checkbox("Show all results")
+show_all_field = Field(
+    title="Which results to show",
+    description="If checked, will be shown both correct and incorrect results, otherwise only incorrect",
+    content=show_all_checkbox,
+)
+
 results_table = Table(columns=columns, fixed_cols=1)
 results_table.hide()
 
-layout = Container(widgets=[check_field, error_text, results_table])
+layout = Container(widgets=[check_field, show_all_field, error_text, results_table])
 app = sly.Application(layout=layout)
 
 # Enabling advanced debug mode.
@@ -78,21 +85,22 @@ def check_annotation(
 ):
     for tag in ann.tags:
         status = ok_status if is_in_range(tag, ann) else error_status
-        results.append(
-            [
-                status,
-                dataset.name,
-                video_id,
-                video_name,
-                sly.video.get_labeling_tool_link(
-                    sly.video.get_labeling_tool_url(
-                        dataset.id, video_id, video_frame=tag.frame_range[0]
-                    )
-                ),
-                tag.value,
-                tag.frame_range,
-            ]
-        )
+        result = [
+            status,
+            dataset.name,
+            video_id,
+            video_name,
+            sly.video.get_labeling_tool_link(
+                sly.video.get_labeling_tool_url(
+                    dataset.id, video_id, video_frame=tag.frame_range[0]
+                )
+            ),
+            tag.value,
+            tag.frame_range,
+        ]
+
+        if show_all_checkbox.is_checked() or status == error_status:
+            results.append(result)
 
 
 def is_in_range(tag: sly.VideoTag, ann: sly.VideoAnnotation) -> bool:
