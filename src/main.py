@@ -4,7 +4,7 @@ import supervisely.app.development as sly_app_development
 from supervisely.app.widgets import Container, Button, Field, Table
 from dotenv import load_dotenv
 
-columns = ["Status", "Video ID", "Video Name", "URL", "Object Name", "Frame Range"]
+columns = ["Status", "Dataset name", "Video ID", "Video Name", "URL", "Object Name", "Frame Range"]
 
 check_button = Button("Check")
 check_field = Field(
@@ -13,7 +13,7 @@ check_field = Field(
     content=check_button,
 )
 
-results_table = Table(columns=columns, fixed_cols=2)
+results_table = Table(columns=columns, fixed_cols=1)
 results_table.hide()
 
 layout = Container(widgets=[check_field, results_table])
@@ -29,7 +29,7 @@ if sly.is_development():
 
 api = sly.Api.from_env()
 project_id = sly.env.project_id()
-dataset_id = sly.env.dataset_id()
+# dataset_id = sly.env.dataset_id()
 project_meta = sly.ProjectMeta.from_json(api.project.get_meta(project_id))
 
 results = []
@@ -40,13 +40,15 @@ def check():
     results.clear()
     results_table.hide()
 
-    (
-        video_ids,
-        video_names,
-        anns,
-    ) = download_annotations(dataset_id)
-    for video_id, video_name, ann in zip(video_ids, video_names, anns):
-        check_annotation(video_id, video_name, ann)
+    datasets = api.dataset.get_list(project_id)
+    for dataset in datasets:
+        video_infos = api.video.get_list(dataset.id)
+        video_ids = [video_info.id for video_info in video_infos]
+        video_names = [video_info.name for video_info in video_infos]
+        anns = download_annotations(dataset.id, video_ids)
+
+        for video_id, video_name, ann in zip(video_ids, video_names, anns):
+            check_annotation(dataset, video_id, video_name, ann)
 
     update_table()
 
@@ -56,29 +58,28 @@ def update_table():
     results_table.show()
 
 
-def download_annotations(dataset_id):
-    video_infos = api.video.get_list(dataset_id)
-    video_ids = [video_info.id for video_info in video_infos]
-    video_names = [video_info.name for video_info in video_infos]
+def download_annotations(dataset_id, video_ids):
     anns_json = api.video.annotation.download_bulk(dataset_id, video_ids)
-    anns = [
+    return [
         sly.VideoAnnotation.from_json(ann_json, project_meta, key_id_map=sly.KeyIdMap())
         for ann_json in anns_json
     ]
-    return video_ids, video_names, anns
 
 
-def check_annotation(video_id: int, video_name: str, ann: sly.VideoAnnotation):
+def check_annotation(
+    dataset: sly.DatasetInfo, video_id: int, video_name: str, ann: sly.VideoAnnotation
+):
     for tag in ann.tags:
         status = "✅" if is_in_range(tag, ann) else "❌"
         results.append(
             [
                 status,
+                dataset.name,
                 video_id,
                 video_name,
                 sly.video.get_labeling_tool_link(
                     sly.video.get_labeling_tool_url(
-                        dataset_id, video_id, video_frame=tag.frame_range[0]
+                        dataset.id, video_id, video_frame=tag.frame_range[0]
                     )
                 ),
                 tag.value,
