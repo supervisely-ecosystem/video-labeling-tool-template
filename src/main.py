@@ -28,7 +28,7 @@ show_all_field = Field(
     content=show_all_checkbox,
 )
 
-results_table = Table(columns=columns, fixed_cols=1)
+results_table = Table(columns=columns, fixed_cols=1, sort_direction="desc")
 results_table.hide()
 
 layout = Container(widgets=[check_field, show_all_field, error_text, results_table])
