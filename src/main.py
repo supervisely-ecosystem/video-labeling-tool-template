@@ -68,20 +68,25 @@ project_metas = {}
 table_rows = []
 
 
+# Subscribing to the event of changing the selected video in the Video Labeling Tool.
+# to get the current API object and current project ID.
 @app.event(sly.Event.ManualSelected.VideoChanged)
 def video_changed(event_api: sly.Api, event: sly.Event.ManualSelected.VideoChanged):
-    global api, project_id
-    # Saving the current API object and current project ID to the global variables.
+    global api
+    # Saving the current API object.
     api = event_api
-    project_id = event.project_id
 
     # Using a simple caching mechanism to avoid downloading the project meta every time.
     if event.project_id not in project_metas:
         project_meta = sly.ProjectMeta.from_json(api.project.get_meta(event.project_id))
         project_metas[event.project_id] = project_meta
 
-    # TODO: Lock buttons only on startup
-    event_api.img_ann_tool.disable_job_buttons(event.session_id)
+    global project_id
+    if project_id != event.project_id:
+        # If this is the first time the application is launched,
+        # or the project ID has changed, we will disable the job buttons.
+        project_id = event.project_id
+        event_api.img_ann_tool.disable_job_buttons(event.session_id)
 
 
 @check_button.click
