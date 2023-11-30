@@ -14,9 +14,6 @@ from dotenv import load_dotenv
 # Preparing a list of columns for the results table.
 columns = [
     "Status",
-    # "Dataset name",
-    # "Video ID",
-    # "Video Name",
     "URL",
     "Object Name",
     "Frame Range",
@@ -52,7 +49,14 @@ results_table = Table(columns=columns, fixed_cols=1, sort_direction="desc")
 results_table.hide()
 
 # Preparing the layout of the application and creating the application itself.
-layout = Container(widgets=[check_field, show_all_field, check_text, results_table])
+layout = Container(
+    widgets=[
+        check_field,
+        show_all_field,
+        check_text,
+        results_table,
+    ]
+)
 app = sly.Application(layout=layout)
 
 # Enabling advanced debug mode.
