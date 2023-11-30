@@ -1,7 +1,14 @@
 import os
 import supervisely as sly
 import supervisely.app.development as sly_app_development
-from supervisely.app.widgets import Container, Button, Field, Table, Text, Checkbox
+from supervisely.app.widgets import (
+    Container,
+    Button,
+    Field,
+    Table,
+    Text,
+    Checkbox,
+)
 from dotenv import load_dotenv
 
 # Preparing a list of columns for the results table.
