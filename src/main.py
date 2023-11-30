@@ -20,12 +20,9 @@ check_field = Field(
     content=check_button,
 )
 
-# Widget for displaying an error message if the labeling job is not meeting the requirements.
-error_text = Text(
-    "Some objects are not labeled correctly. Please check the results table for more details.",
-    status="error",
-)
-error_text.hide()
+# Widget for displaying a result of the check.
+check_text = Text()
+check_text.hide()
 
 # This checkbox allows you to choose which results to show in the table.
 # By default, only incorrect results are shown, but you can also show all results.
@@ -41,7 +38,7 @@ results_table = Table(columns=columns, fixed_cols=1, sort_direction="desc")
 results_table.hide()
 
 # Preparing the layout of the application and creating the application itself.
-layout = Container(widgets=[check_field, show_all_field, error_text, results_table])
+layout = Container(widgets=[check_field, show_all_field, check_text, results_table])
 app = sly.Application(layout=layout)
 
 # Enabling advanced debug mode.
@@ -72,7 +69,7 @@ def video_changed(event_api: sly.Api, event: sly.Event.ManualSelected.VideoChang
 
     # Using a simple caching mechanism to avoid downloading the project meta every time.
     if event.project_id not in project_metas:
-        project_meta = api.project.get_meta(event.project_id)
+        project_meta = sly.ProjectMeta.from_json(api.project.get_meta(event.project_id))
         project_metas[event.project_id] = project_meta
 
     # TODO: Lock buttons only on startup
@@ -87,7 +84,7 @@ def check():
     # and will show it again if there are incorrect results.
     table_rows.clear()
     results_table.hide()
-    error_text.hide()
+    check_text.hide()
 
     # Retrieving the list of datasets in the project.
     datasets = api.dataset.get_list(project_id)
@@ -109,11 +106,26 @@ def check():
         for video_id, video_name, ann in zip(video_ids, video_names, anns):
             check_annotation(dataset, video_id, video_name, ann)
 
+    # Filling the table with the results and showing it.
     results_table.read_json({"columns": columns, "data": table_rows})
     results_table.show()
 
+    # Checking if there are incorrect results.
     if any([result[0] == error_status for result in table_rows]):
-        error_text.show()
+        # If there are incorrect results, we show the error message
+        # and block the job buttons.
+        # TODO: Block buttons
+        check_text.text = "The labeling job is not meeting the requirements, please check the table"
+        check_text.status = "error"
+    else:
+        # If there are no incorrect results, we show the success message
+        # and unlock the job buttons.
+        # TODO: Unlock buttons
+        check_text.text = "The labeling job is meeting the requirements"
+        check_text.status = "success"
+
+    # Showing the check result.
+    check_text.show()
 
 
 def download_annotations(dataset_id: int, video_ids: List[int]) -> List[sly.VideoAnnotation]:
