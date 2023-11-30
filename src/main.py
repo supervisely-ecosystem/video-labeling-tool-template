@@ -93,6 +93,8 @@ def video_changed(event_api: sly.Api, event: sly.Event.ManualSelected.VideoChang
         project_meta = sly.ProjectMeta.from_json(api.project.get_meta(event.project_id))
         project_metas[event.project_id] = project_meta
 
+    api.vid_ann_tool.disable_job_controls(session_id)
+
 
 @validate_button.click
 def check():
@@ -115,21 +117,22 @@ def check():
     check_annotation(dataset_id, video_id, ann)
 
     # Filling the table with the results and showing it.
-    results_table.read_json({"columns": columns, "data": table_rows})
-    results_table.show()
+    if len(table_rows) > 0:
+        results_table.read_json({"columns": columns, "data": table_rows})
+        results_table.show()
 
     # Checking if there are incorrect results.
     if any([result[0] == error_status for result in table_rows]):
         # If there are incorrect results, we show the error message
         # and block the job buttons.
         api.vid_ann_tool.disable_job_controls(session_id)
-        check_text.text = "The labeling job is not meeting the requirements, please check the table"
+        check_text.text = "The video was not annotated correctly"
         check_text.status = "error"
     else:
         # If there are no incorrect results, we show the success message
         # and unlock the job buttons.
         api.vid_ann_tool.enable_job_controls(session_id)
-        check_text.text = "The labeling job is meeting the requirements"
+        check_text.text = "The video is annotated correctly"
         check_text.status = "success"
 
     # Showing the check result.
