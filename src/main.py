@@ -60,6 +60,7 @@ if sly.is_development():
 # Initializing global variables.
 api = None
 project_id = None
+session_id = None
 
 # We will store the project meta in a dictionary so that we do not have to download it every time.
 project_metas = {}
@@ -72,9 +73,10 @@ table_rows = []
 # to get the current API object and current project ID.
 @app.event(sly.Event.ManualSelected.VideoChanged)
 def video_changed(event_api: sly.Api, event: sly.Event.ManualSelected.VideoChanged):
-    global api
-    # Saving the current API object.
+    global api, session_id
+    # Saving the current API object and current session ID.
     api = event_api
+    session_id = event.session_id
 
     # Using a simple caching mechanism to avoid downloading the project meta every time.
     if event.project_id not in project_metas:
@@ -86,7 +88,7 @@ def video_changed(event_api: sly.Api, event: sly.Event.ManualSelected.VideoChang
         # If this is the first time the application is launched,
         # or the project ID has changed, we will disable the job buttons.
         project_id = event.project_id
-        event_api.img_ann_tool.disable_job_buttons(event.session_id)
+        event_api.vid_ann_tool.disable_job_controls(event.session_id)
 
 
 @check_button.click
@@ -127,13 +129,13 @@ def check():
     if any([result[0] == error_status for result in table_rows]):
         # If there are incorrect results, we show the error message
         # and block the job buttons.
-        # TODO: Block buttons
+        api.vid_ann_tool.disable_job_controls(session_id)
         check_text.text = "The labeling job is not meeting the requirements, please check the table"
         check_text.status = "error"
     else:
         # If there are no incorrect results, we show the success message
         # and unlock the job buttons.
-        # TODO: Unlock buttons
+        api.vid_ann_tool.enable_job_controls(session_id)
         check_text.text = "The labeling job is meeting the requirements"
         check_text.status = "success"
 
