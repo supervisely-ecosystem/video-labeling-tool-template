@@ -6,7 +6,15 @@ from supervisely.app.widgets import Container, Button, Field, Table, Text, Check
 from dotenv import load_dotenv
 
 # Preparing a list of columns for the results table.
-columns = ["Status", "Dataset name", "Video ID", "Video Name", "URL", "Object Name", "Frame Range"]
+columns = [
+    "Status",
+    # "Dataset name",
+    # "Video ID",
+    # "Video Name",
+    "URL",
+    "Object Name",
+    "Frame Range",
+]
 
 # Preparing the status icons, you can change them and use your own.
 ok_status = "✅"
@@ -176,11 +184,11 @@ def check_annotation(
         # Preparing an entry for the results table.
         result = [
             status,
-            dataset.name,
-            video_id,
-            video_name,
+            # dataset.name,
+            # video_id,
+            # video_name,
             sly.video.get_labeling_tool_url(
-                dataset.id, video_id, frame=tag.frame_range[0], link=True
+                dataset.id, video_id, frame=tag.frame_range[0], link=True, link_text="open"
             ),
             tag.value,
             tag.frame_range,
