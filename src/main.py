@@ -1,6 +1,5 @@
 import os
 import supervisely as sly
-from typing import List
 import supervisely.app.development as sly_app_development
 from supervisely.app.widgets import Container, Button, Field, Table, Text, Checkbox
 from dotenv import load_dotenv
@@ -21,11 +20,11 @@ ok_status = "✅"
 error_status = "❌"
 
 # This is the main button that starts the check.
-check_button = Button("Check")
+validate_button = Button("Validate", icon="zmdi zmdi-check")
 check_field = Field(
-    title="Check the labeling job",
-    description="Press the button to check if the labeling job is meeting the requirements",
-    content=check_button,
+    title="Validate current video",
+    description="Press the button to check if the video was annotated correctly",
+    content=validate_button,
 )
 
 # Widget for displaying a result of the check.
@@ -37,7 +36,7 @@ check_text.hide()
 show_all_checkbox = Checkbox("Show all results")
 show_all_field = Field(
     title="Which results to show",
-    description="If checked, will be shown both correct and incorrect results, otherwise only incorrect",
+    description="If checked, will be shown both correct and incorrect results",
     content=show_all_checkbox,
 )
 
@@ -59,8 +58,9 @@ if sly.is_development():
 
 # Initializing global variables.
 api = None
-project_id = None
 session_id = None
+dataset_id = None
+video_id = None
 
 # We will store the project meta in a dictionary so that we do not have to download it every time.
 project_metas = {}
@@ -73,25 +73,21 @@ table_rows = []
 # to get the current API object and current project ID.
 @app.event(sly.Event.ManualSelected.VideoChanged)
 def video_changed(event_api: sly.Api, event: sly.Event.ManualSelected.VideoChanged):
-    global api, session_id
-    # Saving the current API object and current session ID.
+    global api, session_id, dataset_id, video_id, project_id
+    # Saving the event parameters to global variables.
     api = event_api
     session_id = event.session_id
+    dataset_id = event.dataset_id
+    video_id = event.video_id
+    project_id = event.project_id
 
     # Using a simple caching mechanism to avoid downloading the project meta every time.
     if event.project_id not in project_metas:
         project_meta = sly.ProjectMeta.from_json(api.project.get_meta(event.project_id))
         project_metas[event.project_id] = project_meta
 
-    global project_id
-    if project_id != event.project_id:
-        # If this is the first time the application is launched,
-        # or the project ID has changed, we will disable the job buttons.
-        project_id = event.project_id
-        event_api.vid_ann_tool.disable_job_controls(event.session_id)
 
-
-@check_button.click
+@validate_button.click
 def check():
     # If the button is pressed, we clear the table and hide it,
     # because we will fill the table with new results.
@@ -101,25 +97,15 @@ def check():
     results_table.hide()
     check_text.hide()
 
-    # Retrieving the list of datasets in the project.
-    datasets = api.dataset.get_list(project_id)
+    # Retrieving project meta from the cache.
+    project_meta = project_metas[project_id]
 
-    # Iterating over all datasets in the project.
-    for dataset in datasets:
-        # Retrieving list of VideoInfo objects for the current dataset.
-        video_infos = api.video.get_list(dataset.id)
+    # Downloading the annotation in JSON format and converting it to VideoAnnotation object.
+    ann_json = api.video.annotation.download(video_id)
+    ann = sly.VideoAnnotation.from_json(ann_json, project_meta, key_id_map=sly.KeyIdMap())
 
-        # Preparing a list of video IDs and video names for the current dataset.
-        video_ids = [video_info.id for video_info in video_infos]
-        video_names = [video_info.name for video_info in video_infos]
-
-        # Downloading annotations for the current dataset.
-        anns = download_annotations(dataset.id, video_ids)
-
-        # Iterating over all videos in the current dataset
-        # and checking the annotations for each video.
-        for video_id, video_name, ann in zip(video_ids, video_names, anns):
-            check_annotation(dataset, video_id, video_name, ann)
+    # Checking the annotation for the current video.
+    check_annotation(dataset_id, video_id, ann)
 
     # Filling the table with the results and showing it.
     results_table.read_json({"columns": columns, "data": table_rows})
@@ -143,41 +129,14 @@ def check():
     check_text.show()
 
 
-def download_annotations(dataset_id: int, video_ids: List[int]) -> List[sly.VideoAnnotation]:
-    """Download annotations for the current dataset and return a list of VideoAnnotation objects.
-
-    :param dataset_id: dataset ID
-    :type dataset_id: int
-    :param video_ids: list of video IDs
-    :type video_ids: List[int]
-    :return: list of VideoAnnotation objects
-    :rtype: List[sly.VideoAnnotation]
-    """
-    # Downloading annotations for the current dataset in JSON format.
-    anns_json = api.video.annotation.download_bulk(dataset_id, video_ids)
-
-    # Retrieving the cached project meta for the current project.
-    project_meta = project_metas[project_id]
-
-    # Returning a list of VideoAnnotation objects.
-    return [
-        sly.VideoAnnotation.from_json(ann_json, project_meta, key_id_map=sly.KeyIdMap())
-        for ann_json in anns_json
-    ]
-
-
-def check_annotation(
-    dataset: sly.DatasetInfo, video_id: int, video_name: str, ann: sly.VideoAnnotation
-) -> None:
+def check_annotation(dataset_id: int, video_id: int, ann: sly.VideoAnnotation) -> None:
     """Checks the annotation for the current video and adds the result to the global
     list of table rows.
 
-    :param dataset: dataset object
-    :type dataset: sly.DatasetInfo
+    :param dataset: ID of the dataset where the video is located
+    :type dataset: int
     :param video_id: video ID
     :type video_id: int
-    :param video_name: video name
-    :type video_name: str
     :param ann: VideoAnnotation object
     :type ann: sly.VideoAnnotation
     """
@@ -191,11 +150,8 @@ def check_annotation(
         # Preparing an entry for the results table.
         result = [
             status,
-            # dataset.name,
-            # video_id,
-            # video_name,
             sly.video.get_labeling_tool_url(
-                dataset.id, video_id, frame=tag.frame_range[0], link=True, link_text="open"
+                dataset_id, video_id, frame=tag.frame_range[0], link=True, link_text="open"
             ),
             tag.value,
             tag.frame_range,
