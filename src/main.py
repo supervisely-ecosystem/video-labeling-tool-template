@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 # Preparing a list of columns for the results table.
 columns = [
     "Status",
-    "URL",
+    "Open",
     "Object Name",
     "Frame Range",
 ]
@@ -143,6 +143,21 @@ def check():
     check_text.show()
 
 
+@results_table.click
+def handle_table_button(datapoint: sly.app.widgets.Table.ClickedDataPoint) -> None:
+    """Handles clicks on the buttons in the table.
+    Changes the current frame in the Labeling Tool to the start frame of the object.
+
+    :param datapoint: ClickedDataPoint object
+    :type datapoint: sly.app.widgets.Table.ClickedDataPoint
+    """
+    if datapoint.button_name != "Open":
+        return
+
+    start, end = datapoint.row["Frame Range"]
+    # TODO: Go to start frame in Labeling Tool
+
+
 def check_annotation(dataset_id: int, video_id: int, ann: sly.VideoAnnotation) -> None:
     """Checks the annotation for the current video and adds the result to the global
     list of table rows.
@@ -164,9 +179,7 @@ def check_annotation(dataset_id: int, video_id: int, ann: sly.VideoAnnotation) -
         # Preparing an entry for the results table.
         result = [
             status,
-            sly.video.get_labeling_tool_url(
-                dataset_id, video_id, frame=tag.frame_range[0], link=True, link_text="open"
-            ),
+            sly.app.widgets.Table.create_button("Open"),
             tag.value,
             tag.frame_range,
         ]
