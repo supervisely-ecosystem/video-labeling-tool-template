@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 columns = [
     "Status",
     "Open",
-    "Object Name",
+    "Object Class",
     "Frame Range",
 ]
 
@@ -146,7 +146,7 @@ def check():
 @results_table.click
 def handle_table_button(datapoint: sly.app.widgets.Table.ClickedDataPoint) -> None:
     """Handles clicks on the buttons in the table.
-    Changes the current frame in the Labeling Tool to the start frame of the object.
+    Changes the current frame in the Labeling Tool to the start frame.
 
     :param datapoint: ClickedDataPoint object
     :type datapoint: sly.app.widgets.Table.ClickedDataPoint
@@ -154,8 +154,11 @@ def handle_table_button(datapoint: sly.app.widgets.Table.ClickedDataPoint) -> No
     if datapoint.button_name != "Open":
         return
 
+    # Getting the frame range from the table row.
     start, end = datapoint.row["Frame Range"]
-    # TODO: Go to start frame in Labeling Tool
+
+    # Changing the current frame in the Labeling Tool.
+    api.vid_ann_tool.set_video(session_id, video_id, start)
 
 
 def check_annotation(dataset_id: int, video_id: int, ann: sly.VideoAnnotation) -> None:
