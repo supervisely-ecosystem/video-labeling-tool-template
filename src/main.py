@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 # Preparing a list of columns for the results table.
 columns = [
     "Status",
-    "Open",
+    "Go to Frame",
     "Object Class",
     "Frame Range",
 ]
@@ -24,7 +24,7 @@ ok_status = "✅"
 error_status = "❌"
 
 # This is the main button that starts the check.
-validate_button = Button("Validate", icon="zmdi zmdi-check")
+validate_button = Button("Validate")
 check_field = Field(
     title="Validate current video",
     description="Press the button to check if the video was annotated correctly",
