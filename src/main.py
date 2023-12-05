@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 import supervisely as sly
 import supervisely.app.development as sly_app_development
 from supervisely.app.widgets import (
@@ -9,7 +10,7 @@ from supervisely.app.widgets import (
     Text,
     Checkbox,
 )
-from dotenv import load_dotenv
+
 
 # Preparing a list of columns for the results table.
 columns = [
@@ -23,17 +24,17 @@ columns = [
 ok_status = "✅"
 error_status = "❌"
 
-# This is the main button that starts the check.
+# This is the main button that starts the validation.
 validate_button = Button("Validate")
-check_field = Field(
+validate_field = Field(
     title="Validate current video",
     description="Press the button to check if the video was annotated correctly",
     content=validate_button,
 )
 
-# Widget for displaying a result of the check.
-check_text = Text()
-check_text.hide()
+# Widget for displaying a result of the validation.
+validate_text = Text()
+validate_text.hide()
 
 # This checkbox allows you to choose which results to show in the table.
 # By default, only incorrect results are shown, but you can also show all results.
@@ -51,9 +52,9 @@ results_table.hide()
 # Preparing the layout of the application and creating the application itself.
 layout = Container(
     widgets=[
-        check_field,
+        validate_field,
         show_all_field,
-        check_text,
+        validate_text,
         results_table,
     ]
 )
@@ -84,6 +85,7 @@ table_rows = []
 # to get the current API object and current project ID.
 @app.event(sly.Event.ManualSelected.VideoChanged)
 def video_changed(event_api: sly.Api, event: sly.Event.ManualSelected.VideoChanged):
+    sly.logger.info("Current video was changed")
     global api, session_id, dataset_id, video_id, project_id
     # Saving the event parameters to global variables.
     api = event_api
@@ -101,14 +103,14 @@ def video_changed(event_api: sly.Api, event: sly.Event.ManualSelected.VideoChang
 
 
 @validate_button.click
-def check():
+def validate_video():
     # If the button is pressed, we clear the table and hide it,
     # because we will fill the table with new results.
-    # We also hide the error message from the previous check
+    # We also hide the error message from the previous validation
     # and will show it again if there are incorrect results.
     table_rows.clear()
     results_table.hide()
-    check_text.hide()
+    validate_text.hide()
 
     # Retrieving project meta from the cache.
     project_meta = project_metas[project_id]
@@ -117,8 +119,8 @@ def check():
     ann_json = api.video.annotation.download(video_id)
     ann = sly.VideoAnnotation.from_json(ann_json, project_meta, key_id_map=sly.KeyIdMap())
 
-    # Checking the annotation for the current video.
-    check_annotation(dataset_id, video_id, ann)
+    # Validating the annotation for the current video.
+    validate_annotation(dataset_id, video_id, ann)
 
     # Filling the table with the results and showing it.
     if len(table_rows) > 0:
@@ -130,17 +132,17 @@ def check():
         # If there are incorrect results, we show the error message
         # and block the job buttons.
         api.vid_ann_tool.disable_job_controls(session_id)
-        check_text.text = "The video was not annotated correctly"
-        check_text.status = "error"
+        validate_text.text = "The video was not annotated correctly"
+        validate_text.status = "error"
     else:
         # If there are no incorrect results, we show the success message
         # and unlock the job buttons.
         api.vid_ann_tool.enable_job_controls(session_id)
-        check_text.text = "The video is annotated correctly"
-        check_text.status = "success"
+        validate_text.text = "The video is annotated correctly"
+        validate_text.status = "success"
 
-    # Showing the check result.
-    check_text.show()
+    # Showing the validation result.
+    validate_text.show()
 
 
 @results_table.click
@@ -161,8 +163,8 @@ def handle_table_button(datapoint: sly.app.widgets.Table.ClickedDataPoint) -> No
     api.vid_ann_tool.set_video(session_id, video_id, start)
 
 
-def check_annotation(dataset_id: int, video_id: int, ann: sly.VideoAnnotation) -> None:
-    """Checks the annotation for the current video and adds the result to the global
+def validate_annotation(dataset_id: int, video_id: int, ann: sly.VideoAnnotation) -> None:
+    """Validates the annotation for the current video and adds the result to the global
     list of table rows.
 
     :param dataset: ID of the dataset where the video is located
